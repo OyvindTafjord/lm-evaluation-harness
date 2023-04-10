@@ -23,6 +23,7 @@ def simple_evaluate(
     description_dict=None,
     check_integrity=False,
     decontamination_ngrams_path=None,
+    eval_split=None
 ):
 
     """Instantiate and evaluate a model on a list of tasks.
@@ -50,6 +51,8 @@ def simple_evaluate(
         Dictionary of custom task descriptions of the form: `task_name: description`
     :param check_integrity: bool
         Whether to run the relevant part of the test suite for the tasks
+    :param eval_split: str, optional
+        Which evaluation split to run (defaults to "test" with fallback to "val" if "test" not available)
     :return
         Dictionary of results
     """
@@ -91,6 +94,7 @@ def simple_evaluate(
         bootstrap_iters=bootstrap_iters,
         description_dict=description_dict,
         decontamination_ngrams_path=decontamination_ngrams_path,
+        eval_split=eval_split,
     )
 
     # add info about the model and few shot config
@@ -122,6 +126,7 @@ def evaluate(
     bootstrap_iters=100000,
     description_dict=None,
     decontamination_ngrams_path=None,
+    eval_split=None,
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -139,6 +144,9 @@ def evaluate(
         Number of iterations for bootstrap statistics
     :param description_dict: dict[str, str]
         Dictionary of custom task descriptions of the form: `task_name: description`
+    :param eval_split: str, optional
+        Which evaluation split to run (defaults to "test" with fallback to "val" if "test" not available)
+
     :return
         Dictionary of results
     """
@@ -183,14 +191,18 @@ def evaluate(
         versions[task_name] = task.VERSION
         # default to test doc, fall back to val doc if validation unavailable
         # TODO: the test-fallback-to-val system isn't final, we should revisit it at some point
-        if task.has_test_docs():
+        task_set = None
+        if (eval_split is None or eval_split == "test") and task.has_test_docs():
             task_doc_func = task.test_docs
             task_set = "test"  # Required for caching in the decontamination
-        elif task.has_validation_docs():
+        if (eval_split == "val" or (eval_split is None and task_set is None)) and task.has_validation_docs():
             task_set = "val"  # Required for caching in the decontamination
             task_doc_func = task.validation_docs
-        else:
-            raise RuntimeError("Task has neither test_docs nor validation_docs")
+        if task_set is None:
+            if eval_split is None:
+                raise RuntimeError("Task has neither test_docs nor validation_docs")
+            else:
+                raise RuntimeError(f"Task does not have instances in split: {eval_split}")
 
         # deterministically shuffle docs and chop off the first `limit` because sometimes docs are in some kind of order
         task_docs = list(task_doc_func())

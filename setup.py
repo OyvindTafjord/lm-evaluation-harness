@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="lm_eval",
+    name="lm_eval_custom",
     version="0.3.0",
     author="Leo Gao",
     author_email="lg@eleuther.ai",
